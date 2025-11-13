@@ -2,13 +2,13 @@
 
 **Version:** 0.0.1 (Drafting)
 
-Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Rust.
+Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
 
 This project is intended as an excercise in:
 - Rust (duh :P)
-- Socket-based communication (tokio::net)
-- Multi-threading (tokio)
-- Public-Private key cryptography (rsa)
+- Socket-based communication
+- Multi-threading
+- Public-Private key cryptography
 
 ## Basic Concepts
 
@@ -152,11 +152,3 @@ Bytes          | Field
 15[2:7]        | Reserved
 16:N           | C2C data
 ```
-
-
-## Dependencies:
-- [uuid](https://docs.rs/uuid/1.18.1): Generation of unique client IDs.
-- [rsa](https://docs.rs/rsa/0.9.8/rsa/): Generation of key pairs, generation/verification of signatures, mesage encryption.
-- [chrono](https://docs.rs/chrono/latest/chrono/): Datetime provisions
-- [tokio](https://docs.rs/tokio/1.48.0): Multithreading, TCP/UDP sockets.
-- [pkcs1](https://docs.rs/pkcs1/0.7.5): Storage and retrieval of Private/public keys.

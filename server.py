@@ -2,7 +2,7 @@ import sys
 import signal
 import socket
 
-import frame
+import auth
 
 # Capture SIGINT to quit cleanly 
 signal.signal(signal.SIGINT, lambda signum, _: sys.exit(1))
@@ -23,22 +23,9 @@ with socket.socket(
             continue
             
         print(f"New connection from {address}")
-
-        # Super-basic challenge-response setup, to be replaced.
-        expected = {
-            "challenge": { "len": 5, "val": b'hello' },
-            "response":  { "val": b'world', "len": 5 }
-        }
-
-        frame.send(clientsock, expected["challenge"]["val"])
+        
         try:
-            # This should be replaced with a signature validation.
-            response = frame.read(clientsock)
-            if response == expected["response"]["val"]:
-                msg = b'Connection authenticated!'
-                frame.send(clientsock, msg)
-            else:
-                clientsock.close()
+            auth.challenge(clientsock)
             
             # At this point the client is authenticated.
             # For now we just close the connection.

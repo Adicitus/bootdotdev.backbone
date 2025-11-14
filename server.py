@@ -17,22 +17,31 @@ def run():
         sock.listen()
         print(f"Server listening on {sock.getsockname()[1]}")
 
+        next_connection_id = 1
+
         while True:
             try:
                 clientsock, address = sock.accept()
             except TimeoutError:
                 continue
+
+            connection_id = next_connection_id
+            next_connection_id += 1
                 
-            print(f"New connection from {address}")
+            print(f"{connection_id}: New connection from {address}")
             
             try:
                 auth.challenge(clientsock)
-                
+                print(f"{connection_id}: challenge met")
                 # At this point the client is authenticated.
                 # For now we just close the connection.
                 clientsock.close()
-            except:
+            except auth.ChallengeFailed:
+                print(f"{connection_id}: Challenge failed")
                 # Something went wrong with the underlying connection, close it.
+                clientsock.close()
+            except Exception:
+                print(f"{connection_id}: Unexpected failure during challenge")
                 clientsock.close()
             
 if __name__ == "__main__":

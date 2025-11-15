@@ -36,12 +36,12 @@ def run():
                 # At this point the client is authenticated.
                 # For now we just close the connection.
                 clientsock.close()
-            except auth.ChallengeFailed:
-                print(f"{connection_id}: Challenge failed")
+            except auth.ChallengeFailed as e:
+                print(f"{connection_id}: Challenge failed: {e}")
                 # Something went wrong with the underlying connection, close it.
                 clientsock.close()
-            except Exception:
-                print(f"{connection_id}: Unexpected failure during challenge")
+            except Exception as e:
+                print(f"{connection_id}: Unexpected failure during challenge: {e}")
                 clientsock.close()
             
 if __name__ == "__main__":

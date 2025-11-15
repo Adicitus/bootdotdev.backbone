@@ -1,6 +1,6 @@
 # bootdotdev.backbone
 
-**Version:** 0.1.1
+**Version:** 0.1.3
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
 
@@ -13,7 +13,7 @@ This project is intended as an excercise in:
 
 1. Backbone Server:
    - Holds a Public-Private key-pair for server identification and connection encryption.
-   - Holds a list of valid client IDs and public keys.
+   - Holds a list of valid client IDs (UUID4s) and public keys (RSA).
    - Generates public and private keys for new clients.
    - Listens for connections from clients.
    - Validates client connection details.
@@ -25,7 +25,7 @@ This project is intended as an excercise in:
   
 2. Backbone Client:
    - Holds a private key and ID assgned by a server.
-   - Connects to the a single single server.
+   - Connects to the a single server.
    - Sends Client-Client messages to other clients.
    - Receives Client-Client messages from other clients.
    - Sends Client-Server messages to:
@@ -56,6 +56,8 @@ This project is intended as an excercise in:
    - Contains:
      - Heartbeat Interval
      - Connection Timeout
+
+7. Client ID: A Univerally Unique ID version 4 (UUIDv4)
 
 
 ## Specifications

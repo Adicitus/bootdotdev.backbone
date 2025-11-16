@@ -42,7 +42,7 @@ def serialize(key) -> bytes:
         return key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption
+            encryption_algorithm=serialization.NoEncryption()
         )
     elif isinstance(key, rsa.RSAPublicKey):
         return key.public_bytes(
@@ -55,3 +55,69 @@ def deserialize(pem: bytes):
         return serialization.load_pem_public_key(pem, backend=default_backend)
     if b'PRIVATE KEY' in pem:
         return serialization.load_pem_private_key(pem, password=None, backend=default_backend)
+
+def encrypt(key: rsa.RSAPublicKey, data: bytes) -> bytes:
+    enc_data = b''
+    for chunk in encrypt_iter(key, data):
+        enc_data += chunk
+    return enc_data
+
+def decrypt(key: rsa.RSAPrivateKey, enc_data: bytes) -> bytes:
+    data = b''
+    for chunk in decrypt_iter(key, enc_data):
+        data += chunk
+    return data
+
+
+def encrypt_iter(key: rsa.RSAPublicKey, data: bytes):
+    i = 0
+    inc = 190
+    max_i = (len(data) // inc) * inc
+    while i < max_i:
+        yield key.encrypt(
+            data[i:i+190],
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
+        i += inc
+    
+    if len(data) % inc != 0:
+        yield key.encrypt(
+                data[max_i:],
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+
+def decrypt_iter(key: rsa.RSAPrivateKey, data: bytes):
+    i = 0
+    inc = 256
+    max_i = (len(data) // inc) * inc
+    
+    while i < max_i:
+        yield key.decrypt(
+                data[i:i+inc],
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+            )
+        )
+
+        i += inc
+
+    if len(data) % inc != 0:
+        yield key.decrypt(
+            data[max_i:],
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )

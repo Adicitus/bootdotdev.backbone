@@ -1,6 +1,6 @@
 # bootdotdev.backbone
 
-**Version:** 0.1.3
+**Version:** 0.1.4
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
 

@@ -37,6 +37,21 @@ class TestKeyFunctions(unittest.TestCase):
         self.assertTrue(key.verify(public_key1, data, signature1), "Should return True for signatures using the associated private key")
         self.assertFalse(key.verify(public_key1, data, signature2), "Should return False for signatures generated with foreign private key")
         self.assertFalse(key.verify(public_key1, bytes([]), signature2), "Should return false for empty byte array.")
+    
+    def test_encryption(self):
+        private_key1 = key.generate()
+        public_key1  = private_key1.public_key()
+        private_key2 = key.generate()
+
+        # data = urandom(1024)
+        data = b'Hello World!'
+
+        encrypted_data = key.encrypt(public_key1, data)
+        self.assertEqual(len(encrypted_data) % 256, 0, "Since we are using a 256 bit hashing function, encrypted data lenght should be a multiple of 256.")
+        self.assertNotEqual(data, encrypted_data, "Encrypted message should differ from the unencrypted message")
+
+        self.assertEqual(data, key.decrypt(private_key1, encrypted_data), "Decrypted message should be the same as the unencrypted message.")
+        self.assertRaises(ValueError, lambda: key.decrypt(private_key2, encrypted_data))
 
 
 if __name__ == "__main__":

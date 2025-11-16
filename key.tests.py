@@ -1,4 +1,5 @@
 from os import urandom
+from typing import Iterator
 import unittest
 
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -38,13 +39,12 @@ class TestKeyFunctions(unittest.TestCase):
         self.assertFalse(key.verify(public_key1, data, signature2), "Should return False for signatures generated with foreign private key")
         self.assertFalse(key.verify(public_key1, bytes([]), signature2), "Should return false for empty byte array.")
     
-    def test_encryption(self):
+    def test_encryption_small_data(self):
         private_key1 = key.generate()
         public_key1  = private_key1.public_key()
         private_key2 = key.generate()
 
-        # data = urandom(1024)
-        data = b'Hello World!'
+        data = b'Hello World!' # 12 bytes
 
         encrypted_data = key.encrypt(public_key1, data)
         self.assertEqual(len(encrypted_data) % 256, 0, "Since we are using a 256 bit hashing function, encrypted data lenght should be a multiple of 256.")
@@ -53,6 +53,47 @@ class TestKeyFunctions(unittest.TestCase):
         self.assertEqual(data, key.decrypt(private_key1, encrypted_data), "Decrypted message should be the same as the unencrypted message.")
         self.assertRaises(ValueError, lambda: key.decrypt(private_key2, encrypted_data))
 
+    def test_encryption_1mibi_data(self):
+        private_key1 = key.generate()
+        public_key1  = private_key1.public_key()
+        private_key2 = key.generate()
+
+        data = urandom((2**10)**2) # 1MiBi
+
+        encrypted_data = key.encrypt(public_key1, data)
+        self.assertEqual(len(encrypted_data) % 256, 0, "Since we are using a 256 bit hashing function, encrypted data lenght should be a multiple of 256.")
+        self.assertNotEqual(data, encrypted_data, "Encrypted message should differ from the unencrypted message")
+
+        self.assertEqual(data, key.decrypt(private_key1, encrypted_data), "Decrypted message should be the same as the unencrypted message.")
+        self.assertRaises(ValueError, lambda: key.decrypt(private_key2, encrypted_data))
+    
+    def test_encryption_iterables(self):
+        private_key1 = key.generate()
+        public_key1  = private_key1.public_key()
+        private_key2 = key.generate()
+
+        data = urandom(2**10)
+
+        encryption_iterator = key.encrypt_iter(public_key1, data)
+        self.assertIn('__next__', dir(encryption_iterator))
+        encrypted_data = b''
+        for chunk in encryption_iterator:
+            self.assertIsInstance(chunk, bytes)
+            encrypted_data += chunk
+        self.assertNotEqual(data, encrypted_data)
+        self.assertRaises(ValueError, lambda: key.decrypt(private_key2, encrypted_data))
+        
+        decryption_iterator = key.decrypt_iter(private_key1, encrypted_data)
+        self.assertIn('__next__', dir(decryption_iterator))
+        decrypted_data = b''
+        for chunk in decryption_iterator:
+            self.assertIsInstance(chunk, bytes)
+            decrypted_data += chunk
+        self.assertEqual(data, decrypted_data)
+
+
+
+
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)

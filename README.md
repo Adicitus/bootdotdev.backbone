@@ -1,6 +1,7 @@
 # bootdotdev.backbone
 
-**Version:** 0.1.4
+**Spec Version:** 0.1.2
+**Code Version:** 0.1.4
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
 
@@ -80,7 +81,7 @@ This project is intended as an excercise in:
 
 Each client is expected to establish and maintain a connection with the server via TCP.
 
-Once a connection has been established, the server will issue a challenge by transmitting an amount of binary data (_challenge data_).
+Once a connection has been established, the server will issue a challenge by transmitting an amount of binary data (_challenge data_) and a pulic key (_server_pub_key_).
 
 In order to authenticate the connection, the client should generate a _signature_ using its pre-assigned private key and algorithm, which it then transmits via the TCP connection along with it's pre-assigned client_id.
 
@@ -90,15 +91,15 @@ If the client fails to respond within the _connection timeout_, the _client ID_ 
 
 ##### Successful authentication
 ```
-                                     Client                          Server
-1:                                   | <-------- <challenge_data> -- |
-2: sign(private_key, challenge_data) |                               | 
-3:                                   | -- <client_id & signature> -> |
-4:                                   |                               | Verify(clients[client_id][key], challenge_data, signature) == true
-5:                                   |                               | client[client_id].connected = true
-6:                                   |                               | client[client_id].sign_of_life = Utc::now()
-7:                                   | <---- <cnnection settings> -- |
-8:                                   |                               | // Wait for message or timout (settings.timeout < (Utc::Now() - client[client_id].sign_of_life)).
+                                     Client                                   Server
+1:                                   | <-- <server_pub_key challenge_data> -- |
+2: sign(private_key, challenge_data) |                                        | 
+3:                                   | -- <client_id & signature> ----------> |
+4:                                   |                                        | Verify(clients[client_id][key], challenge_data, signature) == true
+5:                                   |                                        | client[client_id].connected = true
+6:                                   |                                        | client[client_id].sign_of_life = Utc::now()
+7:                                   | <------------- <cnnection settings> -- |
+8:                                   |                                        | // Wait for message or timout (settings.timeout < (Utc::Now() - client[client_id].sign_of_life)).
 ```
 
 ### Message Format

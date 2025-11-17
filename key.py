@@ -87,13 +87,13 @@ def encrypt_iter(key: rsa.RSAPublicKey, data: bytes):
     
     if len(data) % inc != 0:
         yield key.encrypt(
-                data[max_i:],
-                padding.OAEP(
-                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                    algorithm=hashes.SHA256(),
-                    label=None
-                )
+            data[max_i:],
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
             )
+        )
 
 def decrypt_iter(key: rsa.RSAPrivateKey, data: bytes):
     i = 0
@@ -102,11 +102,11 @@ def decrypt_iter(key: rsa.RSAPrivateKey, data: bytes):
     
     while i < max_i:
         yield key.decrypt(
-                data[i:i+inc],
-                padding.OAEP(
-                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                    algorithm=hashes.SHA256(),
-                    label=None
+            data[i:i+inc],
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
             )
         )
 

@@ -4,7 +4,7 @@ import socket
 import traceback
 
 
-from auth import AuthComponent, ChallengeFailed
+from identity import AuthComponent, ChallengeFailed
 
 # Capture SIGINT to quit cleanly 
 signal.signal(signal.SIGINT, lambda signum, _: sys.exit(1))

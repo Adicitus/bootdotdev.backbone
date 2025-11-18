@@ -16,8 +16,8 @@ class AuthComponent:
     def __init__(self, state_dir=None):
         if state_dir == None:
             state_dir = os.path.dirname(__file__)
-        self.clients_dir = os.path.join(state_dir, ".clients")
         self.server_dir  = os.path.join(state_dir, ".server")
+        self.clients_dir = os.path.join(self.server_dir, ".clients")
         self.key_path    = os.path.join(self.server_dir, "key.pem")
 
         self.server_state = {

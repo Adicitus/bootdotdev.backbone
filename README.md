@@ -1,7 +1,7 @@
 # bootdotdev.backbone
 
 **Spec Version:** 0.1.2
-**Code Version:** 0.1.4
+**Code Version:** 0.1.5
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
 
@@ -69,13 +69,13 @@ This project is intended as an excercise in:
 - Each client holds:
   -  _client ID_
   -  _client private key_
-  -  _server public key_
 - The server holds
   - A _server private key_
+  - A _server public key_
   - A record with:
     - _client ID_
     - _client public key_
-- All communication except the initial _challenge data_ should be encrypted using the corresponding _server public key_ or _client public key_.
+- All communication except the initial _challenge_ should be encrypted using the corresponding _server public key_ or _client public key_.
 
 #### Authentication flow
 
@@ -83,7 +83,7 @@ Each client is expected to establish and maintain a connection with the server v
 
 Once a connection has been established, the server will issue a challenge by transmitting an amount of binary data (_challenge data_) and a pulic key (_server_pub_key_).
 
-In order to authenticate the connection, the client should generate a _signature_ using its pre-assigned private key and algorithm, which it then transmits via the TCP connection along with it's pre-assigned client_id.
+In order to authenticate the connection, the client should generate a _signature_ using its pre-assigned private key and algorithm, which it then transmits via the TCP connection along with it's pre-assigned client_id to indicate which _client public key_ should be used to verify the signature.
 
 If the client responds within the _connection timout_, the server will attempt to verify the signature using the _client public key_ and _challenge data_and transmit the .
 
@@ -103,16 +103,16 @@ If the client fails to respond within the _connection timeout_, the _client ID_ 
 ```
 
 ### Message Format
-
 All messages are expected to be binary data, with the first 2 bytes being the length of the _payload data_ (in bytes).
 
 The _payload data_ should be one of:
-- _challenge data_
+- challenge
+- response
 - Client-Client (C2C)
 - Client-Server (C2S)
 - Server-Client (S2C)
 
-For all formats other than _challenge data_, the _payload data_ should be encrypted.
+For all formats other than _challenge_, the _payload data_ should be encrypted.
 
 ```
 Bytes  | Field
@@ -121,10 +121,29 @@ Bytes  | Field
 2:N    | Payload data (Encrypted)
 ```
 
-#### Challenge Data
+#### Challenge & Response
+Backbone uses a challenge/response system for authentication:
+1. The first packet sent across the socket is a _challenge_ (containing the server's public key and the a randomized set of data).
+2. The second packet should be the client's _response_ (containing the client's ID and a signature for the randomized data in the challenge).
+
+Challenge Payload:
+```
+Bytes          | Field
+----------------------
+0:1            | Key Size (key_size, max 65KiB) 
+2:2+key_size   | Payload data (Encrypted)
+2+key_size:N   | Challenge data (challenge_data)
+```
+
 _Challenge data_ should be _settings.challenge_length_ bytes (default 256) of randomized data. This is done to prevent caching of response data.
 
-Otherwise, this message type consist of unstructured data.
+Response Payload:
+```
+Bytes | Field
+-------------
+0:16  | Client ID (client_id)
+16:N  | Signature
+```
 
 #### C2C, C2S & S2C
 All message types are are either client-to-client (c2c), client-to-server (c2s) or server-to-client (s2c).

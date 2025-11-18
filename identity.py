@@ -11,7 +11,13 @@ class ChallengeFailed(Exception) :
     def __init__(self, text):
         super().__init__(f"Authentication challenge failed: {text}")
 
-class AuthComponent:
+class Identity:
+    def __init__(self, id: uuid, public_key: rsa.RSAPublicKey, socket):
+        self.id = id
+        self.key = public_key
+        self.socket = socket
+
+class IdentityComponent:
 
     def __init__(self, state_dir=None):
         if state_dir == None:
@@ -51,7 +57,7 @@ class AuthComponent:
         msg = b'Connection authenticated!'
         frame.send(clientsock, msg, client_key)
 
-        return client_id, client_key
+        return Identity(client_id, client_key, clientsock)
 
     def get_client_key(self, client_id: uuid.UUID) -> rsa.RSAPublicKey:
         client_key_path = os.path.join(self.clients_dir, client_id.hex)

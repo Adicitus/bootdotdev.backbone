@@ -4,13 +4,13 @@ import socket
 import traceback
 
 
-from identity import AuthComponent, ChallengeFailed
+from identity import IdentityComponent, ChallengeFailed
 
 # Capture SIGINT to quit cleanly 
 signal.signal(signal.SIGINT, lambda signum, _: sys.exit(1))
 
 def run():
-    auth = AuthComponent()
+    auth = IdentityComponent()
 
     with socket.socket(
         family=socket.AF_INET,

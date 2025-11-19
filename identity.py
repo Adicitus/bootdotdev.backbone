@@ -12,10 +12,9 @@ class ChallengeFailed(Exception) :
         super().__init__(f"Authentication challenge failed: {text}")
 
 class Identity:
-    def __init__(self, id: uuid, public_key: rsa.RSAPublicKey, socket):
+    def __init__(self, id: uuid, public_key: rsa.RSAPublicKey, socket=None):
         self.id = id
         self.key = public_key
-        self.socket = socket
 
 class IdentityComponent:
 
@@ -34,8 +33,8 @@ class IdentityComponent:
 
         self.initialize()
 
-    def challenge(self, clientsock):
-        challenge_data = os.urandom(256)
+    def challenge(self, clientsock, challenge_size=1024):
+        challenge_data = os.urandom(challenge_size)
 
         msg = len(self.server_state["public_key_bytes"]).to_bytes(2) + self.server_state["public_key_bytes"] + challenge_data
 
@@ -57,7 +56,7 @@ class IdentityComponent:
         msg = b'Connection authenticated!'
         frame.send(clientsock, msg, client_key)
 
-        return Identity(client_id, client_key, clientsock)
+        return clientsock, Identity(client_id, client_key)
 
     def get_client_key(self, client_id: uuid.UUID) -> rsa.RSAPublicKey:
         client_key_path = os.path.join(self.clients_dir, client_id.hex)

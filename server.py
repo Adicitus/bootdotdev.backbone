@@ -6,6 +6,8 @@ import traceback
 
 from identity import IdentityComponent, ChallengeFailed
 
+import settings
+
 # Capture SIGINT to quit cleanly 
 signal.signal(signal.SIGINT, lambda signum, _: sys.exit(1))
 
@@ -36,7 +38,7 @@ def run():
             print(f"{connection_id}: New connection from {address}")
             
             try:
-                auth.challenge(clientsock)
+                auth.challenge(clientsock, settings.challenge_size)
                 print(f"{connection_id}: challenge met")
                 # At this point the client is authenticated.
                 # For now we just close the connection.

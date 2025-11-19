@@ -1,7 +1,7 @@
 # bootdotdev.backbone
 
 **Spec Version:** 0.1.2
-**Code Version:** 0.1.6
+**Code Version:** 0.1.7
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
 
@@ -135,7 +135,7 @@ Bytes          | Field
 2+key_size:N   | Challenge data (challenge_data)
 ```
 
-_Challenge data_ should be _settings.challenge_length_ bytes (default 256) of randomized data. This is done to prevent caching of response data.
+_Challenge data_ should be _settings.challenge_size_ bytes (default 256) of randomized data. This is done to prevent caching of response data.
 
 Response Payload:
 ```

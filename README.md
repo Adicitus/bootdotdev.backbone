@@ -1,6 +1,6 @@
 # bootdotdev.backbone
 
-**Spec Version:** 0.1.2
+**Spec Version:** 0.1.3
 **Code Version:** 0.1.7
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
@@ -9,6 +9,18 @@ This project is intended as an excercise in:
 - Socket-based communication
 - Multi-threading
 - Public-Private key cryptography
+
+## Why not use TLS/SSL (Lib/ssl.py)?
+This is specification is intended as an excercise in using cryptographic primitives to secure communication and data.
+
+### Security implications (why you shouldn't do this in production)
+Crucially, Backbone does not provide a chain of trust: the server public key is provided to you as-is.
+
+Under SSL and TLS, connections are secured using X509 certificates: a public key with attached meta-data, signed by a trusted third party private key to guarantee the integrity of the data.
+
+A certificate associated with that trusted certificate can then be pre-distributed to let the connecting party verify that the certificate provided by the certificate is valid for that server (based on the word of the trusted third party).
+
+Without this mechanism you become vulnerable to [man-in-the-middle attacks](https://en.wikipedia.org/wiki/Man-in-the-middle_attack), where a third-party backbone server can interpose themselves between you and the target server, pretending to be the target server.
 
 ## Basic Concepts
 

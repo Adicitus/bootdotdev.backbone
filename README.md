@@ -1,6 +1,5 @@
 # bootdotdev.backbone
-
-**Spec Version:** 0.1.2
+**Spec Version:** 0.1.4
 **Code Version:** 0.1.8
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
@@ -9,6 +8,46 @@ This project is intended as an excercise in:
 - Socket-based communication
 - Multi-threading
 - Public-Private key cryptography
+
+## Why not use TLS/SSL (Lib/ssl.py)?
+This is specification is intended as an excercise in using cryptographic primitives to secure communication and data.
+
+### Security implications (why you usually shouldn't do this)
+Crucially, Backbone does not provide a chain of trust: the server public key is provided to you as-is.
+
+Under SSL and TLS, connections are secured using X509 certificates: a public key with attached meta-data, signed by a trusted third party private key to guarantee the integrity of the data. This data includes an address (or set of addresses) that you can use to connect to the server.
+
+A certificate associated with that trusted third party key can then be pre-distributed to let the connecting party verify that the certificate provided by the certificate is valid for that address.
+
+Without this mechanism you can become vulnerable to [man-in-the-middle attacks](https://en.wikipedia.org/wiki/Man-in-the-middle_attack), where a third-party server can interpose themselves between you and the target server, pretending to be the target server.
+
+Backbone attempts to mitigates this risk by only using the same public key used for authentication when communicating with the client, however:
+
+1. The client (**C**) attempts a  connect with the target server (**TS**).
+2. The deceptive server (**DS**) sits between **C** and **TS**, and accepts the connection in place of **TS**.
+3. **DS** initiates a TCP connection to **TS**.
+4. **TS** sends a _challenge_ to **DS**
+5. **DS** replaces the _server public key_ with its own _deceptive public key_ and sends this _deceptive challenge_ to **C**.
+6. **C** uses its private key to sign the _challenge data_ to create a _signature_.
+7. **C** encrypts the _signature_ using the _deceptive public key_ and sends it to **DS**
+8. **DS** decrypts the _signature_ using its own private key
+9. **DS** re-encrypts the _signature_ using the _server public key_ and sends it to **TS**
+10. **TS** validates the signature using its stored _client public key_ for **C**.
+11. **TS** acccepts the session from **C** and uses the _client public key_ to encrypt all communication with **C** going forward.
+
+Note that this that while **DS** cannot read messages sent by the **TS**, it can still read any messages sent by **C**. This is not acceptable.
+
+This could be further mitigated by having the client sign <ins>both</ins> the _server public key_ and _challenge data_ to verify receipt, either:
+1. Client creates separate signatures for the _server public key_ and _challenge data_.
+   - This way the server can differentiate between a man-in-the-middle scenario and a login attempt using an invalid private key.
+   - However this also lets the attacker cache the _server public key_ signature, which could then be re-used the next time the client tries to connect to the server. This way the attacker can attempt to supplant the _server public key_ with its own _deceptive public key_.
+     - This could be mitigated by using a random value provided by the server (see [salt](https://en.wikipedia.org/wiki/Salt_(cryptography)), ["number-used-once"](https://en.wikipedia.org/wiki/Cryptographic_nonce)) to introduce an element of randomness to the signature.
+     - <ins>**Please note**</ins> that while the _challenge data_ could be used for this, it would create 2 signatures using the same random element and subsequently theoretically increase the risk of the private key beiong compromised.
+2. Client creates a single signature based on _server public key_ and _challenge data_
+   - We prevent caching of the _public key_ signature and minimize the risk of the client private key being compromised by guessing based on signatures of known data.
+   - Downside is that the server has no way of differentiating between a man-in-the-middle attack and a invalid login attempt.
+
+Specifications prior to version 0.2.0 will define any form of _server public key_ signing mititgation.
 
 ## Basic Concepts
 
@@ -123,8 +162,8 @@ Bytes  | Field
 
 #### Challenge & Response
 Backbone uses a challenge/response system for authentication:
-1. The first packet sent across the socket is a _challenge_ (containing the server's public key and the a randomized set of data).
-2. The second packet should be the client's _response_ (containing the client's ID and a signature for the randomized data in the challenge).
+1. The first packet sent across the socket is a _challenge_ (containing the _server public key_ and the randomized _challenge data_).
+2. The second packet should be the client's _response_ (containing the client's ID and a signature of the _challenge data_).
 
 Challenge Payload:
 ```
@@ -135,7 +174,7 @@ Bytes          | Field
 2+key_size:N   | Challenge data (challenge_data)
 ```
 
-_Challenge data_ should be _settings.challenge_size_ bytes (default 256) of randomized data. This is done to prevent caching of response data.
+_Challenge data_ should be _settings.challenge_size_ bytes (default 2048) of randomized data. This is done to prevent caching of response data.
 
 Response Payload:
 ```

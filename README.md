@@ -1,5 +1,5 @@
 # bootdotdev.backbone
-**Spec Version:** 0.1.4
+**Spec Version:** 0.1.5
 **Code Version:** 0.1.8
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
@@ -99,6 +99,14 @@ Specifications prior to version 0.2.0 will define any form of _server public key
 
 7. Client ID: A Univerally Unique ID version 4 (UUIDv4)
 
+8. Client Handler: An individual thread on the server used to manage an authenticated _Backbone Client_.
+
+9. Client connection: A socket connection to a _Backbone Client_.
+
+10. Client Queue: A queue maintained by the _Backbone Server_ to deliver messages to a _Client Handler_.
+
+11. Server Queue: A queue maintained by the _Backbone Server_ to deliver messages from _Client Handlers_ to the main thread.
+
 
 ## Specifications
 
@@ -145,11 +153,12 @@ If the client fails to respond within the _connection timeout_, the _client ID_ 
 All messages are expected to be binary data, with the first 2 bytes being the length of the _payload data_ (in bytes).
 
 The _payload data_ should be one of:
-- challenge
-- response
-- Client-Client (C2C)
-- Client-Server (C2S)
-- Server-Client (S2C)
+- challenge: Unencrypted message with data used to authenticate the client
+- response: Signed data and client_id to complete authentication
+- Client-Client (C2C): Message routed between clients by the server.
+- Client-Server (C2S): Message sent by the client to request information or modify the connection.
+- Server-Client (S2C): Message sent as response to a message or to inform the client of changes to the server.
+- Server-Server (S2S): Message used to communicate internally with components in the server.
 
 For all formats other than _challenge_, the _payload data_ should be encrypted.
 
@@ -170,7 +179,7 @@ Challenge Payload:
 Bytes          | Field
 ----------------------
 0:1            | Key Size (key_size, max 65KiB) 
-2:2+key_size   | Payload data (Encrypted)
+2:2+key_size   | Server public key
 2+key_size:N   | Challenge data (challenge_data)
 ```
 
@@ -184,21 +193,28 @@ Bytes | Field
 16:N  | Signature
 ```
 
-#### C2C, C2S & S2C
-All message types are are either client-to-client (c2c), client-to-server (c2s) or server-to-client (s2c).
+#### C2C, C2S, S2C, S2S
+All message types are are either client-to-client (c2c), client-to-server (c2s), server-to-client (s2c) or.
 
 Prior to message processing, the _payload data_ must be decrypted into _message data_ using the _server private key_ or _client private key_.
 
-The first 2 bits of the _message data_ are reserved to indicate the type of message:
+The first byte of the _message data_ are reserved to indicate the type of message:
 - 0: c2c
 - 1: c2s or s2c
-- 2-3: Reserved for future use
+- 2: s2s
+- 3-7: Reserved for future use
 
 ```
 Bytes  | Field
 -------------
-0[0:1] | Message type (0=Client-Client, 1=Server-Client or Client-Server)
+0[0:1] | Message type (0=Client-Client, 1=Server-Client or Client-Server, 2=Server-Server)
+0[2:7] | Reserved
 ```
+
+##### Scoping
+Crucially, C2C is the only type of message that can be received on both the socket and the client's message queue on the server. C2S and S2C can only be received on the socket, while S2S can only be received via the client's message queue.
+
+Any message deviating from this convention must be disacrded.
 
 ##### Client-to-Client (C2C)
 C2C messages are meant to be routed between clients, and so the majority of the _message data_ is reserved for client-defined data.
@@ -206,9 +222,15 @@ C2C messages are meant to be routed between clients, and so the majority of the 
 The first 16 bytes indicate the recipient client ID.
 
 ```
-Bytes          | Field
-----------------------
-0[2:7]:15[0:1] | Recipient ID
-15[2:7]        | Reserved
-16:N           | C2C data
+Bytes | Field
+-------------
+1:17  | Recipient ID
+17:N  | C2C data
 ```
+
+##### Client-to-Server (C2S)
+C2S messages are used by the client to communicate with the server _client handler_ on the server.
+
+The most fundamental messages are 'HEARTBEAT' and 'STOP':
+- HEARTBEAT: A signal sent periodically to inform the handler that the client is still alive.
+- STOP: Indicates to he _client handler_ that the client is intending to close the connection.

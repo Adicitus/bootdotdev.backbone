@@ -231,6 +231,28 @@ Bytes | Field
 ##### Client-to-Server (C2S)
 C2S messages are used by the client to communicate with the server _client handler_ on the server.
 
-The most fundamental messages are 'HEARTBEAT' and 'STOP':
+The most fundamental C2S messages are 'HEARTBEAT' and 'STOP':
 - HEARTBEAT: A signal sent periodically to inform the handler that the client is still alive.
 - STOP: Indicates to he _client handler_ that the client is intending to close the connection.
+
+```
+Bytes | Field
+-------------
+0     | Message type
+1:N   | Message type-specific data
+```
+
+Message Types:
+```
+Number | Message Type | Notes
+-----------------------------
+0      | HEARTBEAT    | Client is alive and wishes to keep the connection open for another _settings.heartbeat_interval_.
+1      | STOP         | Client wishes to terminate the connection, _client handler_ should close the _client connection_ and release the _client queue_.
+```
+
+
+
+## Appendix A: Settings
+- **challenge_size**: Size in bytes of the randomized _challenge data_ sent to clients as part of the authentication challenge.
+- **heartbeat_timout**: Time of inactivity (in seconds) that the _client handler_ should wait before assuming a client is dead.
+- **heartbeat_interval**: Time of inactivity before the client should send a _HEARTBEAT_ message.

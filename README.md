@@ -1,5 +1,5 @@
 # bootdotdev.backbone
-**Spec Version:** 0.1.5
+**Spec Version:** 0.1.7
 **Code Version:** 0.1.8
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
@@ -250,7 +250,20 @@ Number | Message Type | Notes
 1      | STOP         | Client wishes to terminate the connection, _client handler_ should close the _client connection_ and release the _client queue_.
 ```
 
+HEARTBEAT message:
+```
+Bytes | Field
+-------------
+1:5   | Unix timestamp (seconds)
+```
 
+STOP message:
+```
+Bytes | Field
+-------------
+1:5   | Unix timestamp (seconds)
+6:N   | Reason message (UTF-8 encoded string)
+```
 
 ## Appendix A: Settings
 - **challenge_size**: Size in bytes of the randomized _challenge data_ sent to clients as part of the authentication challenge.

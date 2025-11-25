@@ -1,6 +1,6 @@
 # bootdotdev.backbone
-**Spec Version:** 0.1.7
-**Code Version:** 0.1.8
+**Spec Version:** 0.1.8
+**Code Version:** 0.1.9
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
 
@@ -198,7 +198,7 @@ All message types are are either client-to-client (c2c), client-to-server (c2s),
 
 Prior to message processing, the _payload data_ must be decrypted into _message data_ using the _server private key_ or _client private key_.
 
-The first byte of the _message data_ are reserved to indicate the type of message:
+The first byte of the _message data_ are reserved to indicate the format of the message:
 - 0: c2c
 - 1: c2s or s2c
 - 2: s2s
@@ -207,8 +207,8 @@ The first byte of the _message data_ are reserved to indicate the type of messag
 ```
 Bytes  | Field
 -------------
-0[0:1] | Message type (0=Client-Client, 1=Server-Client or Client-Server, 2=Server-Server)
-0[2:7] | Reserved
+0[0:3] | Message format (0=Client-Client, 1=Server-Client or Client-Server, 2=Server-Server)
+0[4:7] | Message type
 ```
 
 ##### Scoping
@@ -238,8 +238,8 @@ The most fundamental C2S messages are 'HEARTBEAT' and 'STOP':
 ```
 Bytes | Field
 -------------
-0     | Message type
-1:N   | Message type-specific data
+1     | Message type
+2:N   | Message type-specific data
 ```
 
 Message Types:
@@ -254,15 +254,15 @@ HEARTBEAT message:
 ```
 Bytes | Field
 -------------
-1:5   | Unix timestamp (seconds)
+2:6   | Unix timestamp (seconds)
 ```
 
 STOP message:
 ```
 Bytes | Field
 -------------
-1:5   | Unix timestamp (seconds)
-6:N   | Reason message (UTF-8 encoded string)
+2:6   | Unix timestamp (seconds)
+7:N   | Reason message (UTF-8 encoded string)
 ```
 
 ## Appendix A: Settings

@@ -88,7 +88,12 @@ class BackboneServer:
 
                     try:
                         client_socket, client = auth.challenge(clientsock, settings["challenge_size"])
-                        print(f"{connection_id}: challenge met")
+                        print(f"{connection_id}: challenge met for client {client.id}")
+
+                        if handle.get_client_queue(client.id) != None:
+                            print(f"{connection_id}: Client {client.id} is already connected, dropping this connection.")
+                            client_socket.close()
+                            continue
                         
                         # At this point the client is authenticated.
                         handler = handle.ClientHandler(

@@ -5,6 +5,9 @@ import key
 def read(conn, private_key:rsa.RSAPrivateKey=None):
     l_b = conn.recv(2)
     l   = int.from_bytes(l_b)
+
+    if l == 0:
+        return None
     
     print(f"Receiving {l} bytes")
 

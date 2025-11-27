@@ -7,6 +7,7 @@ from uuid import UUID
 from queue import Empty, Queue
 
 import frame
+import message
 
 from identity import Identity, IdentityComponent
 
@@ -48,6 +49,7 @@ def _deregister_client(client_id:UUID) -> None:
 
 class ClientHandler:
     def __init__(self, client_connection: socket.socket, client:Identity, server:IdentityComponent):
+        self.id = id(client_connection)
         self.connection = client_connection
         self.client = client
         self.server = server
@@ -67,8 +69,7 @@ class ClientHandler:
         return self.thread != None
     
     def _run(self):
-        print("Via stdout: handler started")
-        get_server_queue().put("Via Queue: handler started")
+        print(f"{self.id}: handler started")
 
         socket_semaphore = threading.Semaphore()
         arguments = (self.connection, socket_semaphore, self.stop_flag, self.client, self.server)
@@ -79,13 +80,13 @@ class ClientHandler:
         self.socket_monitor.start()
         self.stop_flag.wait()
 
-        print("Handler stopping...")
+        print(f"{self.id}: Handler stopping...")
 
         self.queue_monitor.join()
         self.socket_monitor.join()
 
-        get_server_queue().put("Via Queue: handler stopped")
-        print("Handler stopped")
+        print(f"{self.id}: Handler stopped")
+        get_server_queue().put(message.BackboneMessageS2S(message.BackboneS2SType.DONE))
         
         self.queue_monitor = None
         self.socket_monitor = None
@@ -93,45 +94,56 @@ class ClientHandler:
 
     @staticmethod
     def _monitor_queue(client_connection: socket.socket, send_access:threading.Semaphore, stop_flag:threading.Event, client:Identity, server:IdentityComponent):
-        print("Queue monitor started")
+        handler_id = id(client_connection)
+        print(f"{handler_id}: Queue monitor started")
         try:
             client_queue = _register_client(client.id)
-            while True:
-                if stop_flag.is_set():
-                    break
+            while not stop_flag.is_set():
                 
                 try:
                     msg = client_queue.get(timeout=1)
                 except Empty:
                     continue
-            
-                # TODO: Implement message handling.
-                # For now we'll just stop the thread if we receive any data via the queue.
-                break
+                
+                match msg.format:
+                    case message.BackboneMessageFormat.C2C:
+                        if msg.recipient != client.id:
+                            print(f"{handler_id}: Invalid routing: handler for {client.id} received message for {msg.recipient}. Dropping message!")
+                            continue
+                        send_access.acquire()
+                        frame.send(client_connection, msg.to_bytes(), client.key)
+                        send_access.release()
+                    case message.BackboneMessageFormat.S2S:
+                        match msg.type:
+                            case message.BackboneS2SType.STOP:
+                                print(f"{handler_id}: Received {msg.type.name} message on queue, stopping...")
+                                break
+                    case _:
+                        print(f"{handler_id}: Recevied a {msg.format} message on queue, dropping it (only C2C or S2S permitted)")
+
         finally:
-            print("QM stopping...")
+            print(f"{handler_id}: QM stopping...")
             _deregister_client(client.id)
             stop_flag.set()
-            print("QM stopped")
+            print(f"{handler_id}: QM stopped")
 
     @staticmethod
     def _monitor_socket(client_connection: socket.socket, send_access:threading.Semaphore, stop_flag:threading.Event, client:Identity, server:IdentityComponent):
-        print("Socket monitor started")
+        handler_id = id(client_connection)
+        print(f"{handler_id}: Socket monitor started")
         client_connection.setblocking(True)
         client_connection.settimeout(1.0)
         try:
-            while True:
-                if stop_flag.is_set():
-                    break
+            while not stop_flag.is_set():
                 
                 try:
                     data = frame.read(client_connection, server.server_state["private_key"])
                 except TimeoutError as e:
                     # This is expected if the client isn't sending any messages.
-                    print(f"Socket timed out: {e}")
+                    print(f"{handler_id}: Socket timed out: {e}")
                     continue
                 except OSError as e:
-                    print(f"Failed to read data from socket: {e}")
+                    print(f"{handler_id}: Failed to read data from socket: {e}")
                     break
                 
                 # Handle the case case where the socket has a timeout and may return None,
@@ -139,12 +151,33 @@ class ClientHandler:
                 if data in (None, b''):
                     continue
                 
-                print(f"Received data via socket: {data}")
+                print(f"{handler_id}: Received data via socket: {data}")
 
-                # TODO: handle the message, for now we just add it to the server_queue
-                server_queue.put(data)
+                msg = message.BackboneMessage.from_bytes(data)
+
+                if msg == None:
+                    print(f"{handler_id}: Failed to parse data as a message: {data}")
+                    continue
+                
+                match msg.format:
+                    case message.BackboneMessageFormat.C2C:
+                        recipient_queue = get_client_queue(msg.recipient)
+                        recipient_queue.put(msg)
+                        continue
+
+                    case message.BackboneMessageFormat.C2S:
+                        match msg.type:
+                            case message.BackboneC2SType.HEARTBEAT:
+                                # TODO: implement activity tracking.
+                                pass
+                            case message.BackboneC2SType.STOP:
+                                print(f"{handler_id}: Received {msg.type.name} message from client, stopping...")
+                                break
+                    case _:
+                        print(f"{handler_id}: Recevied a {msg.format} message on socket, dropping it (only C2C or C2S permitted)")
+
         finally:
-            print("SM stopping...")
+            print(f"{handler_id}: SM stopping...")
             client_connection.close()
             stop_flag.set()
-            print("SM stopped")
+            print(f"{handler_id}: SM stopped")

@@ -109,13 +109,13 @@ class BackboneServer:
                         traceback.print_tb(e.__traceback__)
                         clientsock.close()
         finally:
-            for handler in handlers:
+            for handler in handlers.values():
                 try:
                     handler.stop()
                 except Exception as e:
                     print(f"Exception occurred while trying to stop a handler: {e}")
                     continue
-            for handler in handlers:
+            for handler in handlers.values():
                 if handler.is_running():
                     print(f"Waiting for {handler} to stop running")
                     handler.thread.join()
@@ -137,6 +137,6 @@ if __name__ == "__main__":
 
     server.start(block=False)
     while server.is_running():
-        # Busy waiting so that we can handle the SIGINT, SIGTERM
+        # Busy-waiting so that we can handle the SIGINT, SIGTERM
         time.sleep(1)
 

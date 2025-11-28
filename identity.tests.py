@@ -1,0 +1,228 @@
+import nntplib
+import unittest
+from uuid import UUID, uuid4
+import os
+import tempfile
+import socket
+import threading
+import time
+
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+import identity, key, frame
+
+class TestIdentity(unittest.TestCase):
+
+    def test_identity_creation(self):
+        client_key = key.generate()
+        identity.Identity(uuid4(), client_key.public_key())
+
+class TestIdentityComponent(unittest.TestCase):
+
+    def test_creation(self):
+        with tempfile.TemporaryDirectory() as tmp_path:
+            store_path = os.path.join(tmp_path, '.store')
+
+            identities = identity.IdentityComponent(state_dir=store_path)
+
+            self.assertIsInstance(identities, identity.IdentityComponent)
+
+            self.assertTrue(os.path.isdir(store_path))
+
+    def test_identity_lifecycle(self):
+        with tempfile.TemporaryDirectory() as tmp_path:
+            store_path = os.path.join(tmp_path, '.store')
+
+            identities = identity.IdentityComponent(state_dir=store_path)
+
+            client_id   = uuid4()
+            client_key1 = key.generate()
+            client_key2 = key.generate()
+
+            self.assertEqual(identities.get_client_key(client_id), None, "get_client_key should return None for non-existent client_id.")
+            
+            identities.add_client_key(client_id, client_key1.public_key())
+            self.assertEqual(identities.get_client_key(client_id), client_key1.public_key(), "get_client_key should return the public key associated with the client_id when the client_id exists.")
+            self.assertFalse(identities.add_client_key(client_id, client_key1.public_key()), "")
+            identities.set_client_key(client_id, client_key2.public_key())
+            self.assertEqual(identities.get_client_key(client_id), client_key2.public_key())
+            identities.remove_client_key(client_id)
+            self.assertEqual(identities.get_client_key(client_id), None)
+
+    def test_challenge_default_success(self):
+        with tempfile.TemporaryDirectory() as tmp_path:
+            store_path = os.path.join(tmp_path, '.store')
+
+            identities = identity.IdentityComponent(state_dir=store_path)
+
+            client_id   = uuid4()
+            client_key  = key.generate()
+
+            identities.add_client_key(client_id, client_key.public_key())
+            
+            socket1, socket2 = socket.socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM)
+
+            try:
+                def client_response(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey):
+                    data = frame.read(s)
+                    kl = int.from_bytes(data[0:2])
+                    server_public_key = key.deserialize(data[2:2+kl])
+                    signature = key.sign(client_key, data[2+kl:])
+                    frame.send(s, client_id.bytes + signature, server_public_key)
+                    data = frame.read(s, client_key)
+                    self.assertEqual(data, b'Connection authenticated!')
+
+                client_thread = threading.Thread(
+                    target=client_response,
+                    kwargs={
+                        "s": socket2,
+                        "client_id": client_id,
+                        "client_key": client_key
+                    }
+                )
+                client_thread.start()
+
+                client_socket, client = identities.challenge(socket1)
+
+                time.sleep(0.1)
+
+                self.assertEqual(client_socket, socket1)
+                self.assertEqual(client.id, client_id)
+                self.assertEqual(client.key, client_key.public_key())
+            finally:
+                socket1.close()
+                socket2.close()
+        
+    def test_challenge_2048_success(self):
+        with tempfile.TemporaryDirectory() as tmp_path:
+            store_path = os.path.join(tmp_path, '.store')
+
+            identities = identity.IdentityComponent(state_dir=store_path)
+
+            client_id   = uuid4()
+            client_key  = key.generate()
+
+            identities.add_client_key(client_id, client_key.public_key())
+            
+            socket1, socket2 = socket.socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM)
+
+            try:
+                def client_response(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey):
+                    data = frame.read(s)
+                    kl = int.from_bytes(data[0:2])
+                    server_public_key = key.deserialize(data[2:2+kl])
+                    signature = key.sign(client_key, data[2+kl:])
+                    frame.send(s, client_id.bytes + signature, server_public_key)
+                    data = frame.read(s, client_key)
+                    self.assertEqual(data, b'Connection authenticated!')
+
+                client_thread = threading.Thread(
+                    target=client_response,
+                    kwargs={
+                        "s": socket2,
+                        "client_id": client_id,
+                        "client_key": client_key
+                    }
+                )
+                client_thread.start()
+
+                client_socket, client = identities.challenge(socket1, 2048)
+
+                time.sleep(0.1)
+
+                self.assertEqual(client_socket, socket1)
+                self.assertEqual(client.id, client_id)
+                self.assertEqual(client.key, client_key.public_key())
+            finally:
+                socket1.close()
+                socket2.close()
+    
+    def test_challenge_default_failed(self):
+        with tempfile.TemporaryDirectory() as tmp_path:
+            store_path = os.path.join(tmp_path, '.store')
+
+            identities = identity.IdentityComponent(state_dir=store_path)
+
+            client_id   = uuid4()
+            client_key1  = key.generate()
+            client_key2  = key.generate()
+
+            identities.add_client_key(client_id, client_key1.public_key())
+            
+            socket1, socket2 = socket.socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM)
+
+            try:
+                def client_response(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey):
+                    data = frame.read(s)
+                    kl = int.from_bytes(data[0:2])
+                    server_public_key = key.deserialize(data[2:2+kl])
+                    signature = key.sign(client_key, data[2+kl:])
+                    frame.send(s, client_id.bytes + signature, server_public_key)
+                    data = frame.read(s, client_key)
+                    self.assertEqual(data, None)
+
+                client_thread = threading.Thread(
+                    target=client_response,
+                    kwargs={
+                        "s": socket2,
+                        "client_id": client_id,
+                        "client_key": client_key2
+                    }
+                )
+                client_thread.start()
+
+                with self.assertRaises(identity.ChallengeFailed):
+                    identities.challenge(socket1)
+
+            finally:
+                socket1.close()
+                socket2.close()
+
+    def test_challenge_2048_failed(self):
+        with tempfile.TemporaryDirectory() as tmp_path:
+            store_path = os.path.join(tmp_path, '.store')
+
+            identities = identity.IdentityComponent(state_dir=store_path)
+
+            client_id   = uuid4()
+            client_key1  = key.generate()
+            client_key2  = key.generate()
+
+            identities.add_client_key(client_id, client_key1.public_key())
+            
+            socket1, socket2 = socket.socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM)
+
+            try:
+                def client_response(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey):
+                    data = frame.read(s)
+                    kl = int.from_bytes(data[0:2])
+                    server_public_key = key.deserialize(data[2:2+kl])
+                    signature = key.sign(client_key, data[2+kl:])
+                    frame.send(s, client_id.bytes + signature, server_public_key)
+                    data = frame.read(s, client_key)
+                    self.assertEqual(data, None)
+
+                client_thread = threading.Thread(
+                    target=client_response,
+                    kwargs={
+                        "s": socket2,
+                        "client_id": client_id,
+                        "client_key": client_key2
+                    }
+                )
+                client_thread.start()
+
+                with self.assertRaises(identity.ChallengeFailed):
+                    identities.challenge(socket1, 2048)
+
+            finally:
+                socket1.close()
+                socket2.close()
+
+
+
+
+
+
+if __name__ == "__main__":
+    unittest.main()

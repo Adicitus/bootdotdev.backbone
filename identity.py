@@ -12,7 +12,7 @@ class ChallengeFailed(Exception) :
         super().__init__(f"Authentication challenge failed: {text}")
 
 class Identity:
-    def __init__(self, id: uuid, public_key: rsa.RSAPublicKey, socket=None):
+    def __init__(self, id: uuid, public_key: rsa.RSAPublicKey):
         self.id = id
         self.key = public_key
 
@@ -83,6 +83,16 @@ class IdentityComponent:
             f.write(key.serialize(client_key))
         
         return True
+    
+    def remove_client_key(self, client_id:uuid.UUID) -> bool:
+        client_key_path = os.path.join(self.clients_dir, client_id.hex)
+
+        if not os.path.isfile(client_key_path):
+            return None
+        
+        os.remove(client_key_path)
+
+
 
     def initialize(self):
         if not os.path.exists(self.clients_dir):

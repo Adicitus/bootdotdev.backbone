@@ -41,6 +41,9 @@ class IdentityComponent:
         frame.send(clientsock, msg)
         response = frame.read(clientsock, self.server_state["private_key"])
 
+        if len(response) < 16:
+            raise ChallengeFailed("Invalid response returned.")
+        
         client_id_b = response[0:16]
         client_id = uuid.UUID(bytes=client_id_b)
         
@@ -51,7 +54,7 @@ class IdentityComponent:
         print(f"Response data ({len(response[16:])}): {response[16:]}")
 
         if not key.verify(client_key, challenge_data, response[16:]):
-            raise ChallengeFailed("Invalid signature returned!")
+            raise ChallengeFailed("Invalid signature returned.")
 
         msg = b'Connection authenticated!'
         frame.send(clientsock, msg, client_key)
@@ -78,6 +81,9 @@ class IdentityComponent:
 
     def set_client_key(self, client_id: uuid.UUID, client_key: rsa.RSAPublicKey) -> bool:
         client_key_path = os.path.join(self.clients_dir, client_id.hex)
+
+        if not os.path.exists(client_key_path):
+            return False
         
         with open(client_key_path, 'wb') as f:
             f.write(key.serialize(client_key))
@@ -91,6 +97,7 @@ class IdentityComponent:
             return None
         
         os.remove(client_key_path)
+        return True
 
 
 

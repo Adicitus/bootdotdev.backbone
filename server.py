@@ -57,12 +57,12 @@ class BackboneServer:
         return True
     
     @staticmethod
-    def _run(stop_flag:threading.Event, auth:IdentityComponent, settings):
-        
+    def _run(stop_flag:threading.Event, auth:IdentityComponent, settings:dict):
         next_connection_id = 1
         handlers = {}
 
-        port = settings["port"] if "port" in settings else 4000
+        port           = settings["port"] if "port" in settings else 4000
+        challenge_size = settings["challenge_size"] if "challenge_size" in settings else 2048
 
         try:
             with socket.socket(
@@ -87,7 +87,7 @@ class BackboneServer:
                     print(f"{connection_id}: New connection from {address}")
 
                     try:
-                        client_socket, client = auth.challenge(clientsock, settings["challenge_size"])
+                        client_socket, client = auth.challenge(clientsock, challenge_size)
                         print(f"{connection_id}: challenge met for client {client.id}")
 
                         if handle.get_client_queue(client.id) != None:

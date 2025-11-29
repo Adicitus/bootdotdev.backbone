@@ -1,5 +1,7 @@
 # Always generate 2048 bytes of random data for authentication challenges:
 challenge_size = 2048
+
+[client]
 # Assume the client is dead after 10 minutes of inactivity:
 heartbeat_timeout  = 1200
 # Instruct clients to report heartbeat every 5 minutes:

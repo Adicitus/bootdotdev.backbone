@@ -1,9 +1,9 @@
 import unittest
 import time
+import tomllib
 
 from identity import IdentityComponent
 from server import BackboneServer
-import settings
 
 class TestServer(unittest.TestCase):
     def test_server_creation_default(self):
@@ -11,8 +11,10 @@ class TestServer(unittest.TestCase):
         self.assertIsInstance(server, BackboneServer)
     
     def test_server_creation_custom(self):
+        with open("./settings.toml", 'rb') as f:
+            settings = tomllib.load(f)
         auth = IdentityComponent()
-        server = BackboneServer(identities=auth)
+        server = BackboneServer(identities=auth, settings=settings)
         self.assertIsInstance(server, BackboneServer)
     
     def test_server_start_stop(self):
@@ -23,5 +25,4 @@ class TestServer(unittest.TestCase):
         
 
 if __name__ == "__main__":
-    print(type(settings))
     unittest.main()

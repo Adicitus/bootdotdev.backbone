@@ -11,8 +11,9 @@ class BackboneMessageType(enum.IntEnum):
     pass
 
 class BackboneC2SType(BackboneMessageType):
-    HEARTBEAT = 0
-    STOP      = 15
+    HEARTBEAT = 0   # Used by client to let the handler know that it is alive.
+    CONFIG    = 1   # Used by handler to inform client about connection configuration changes.
+    STOP      = 15  # Used by client & handler to inform the other end to close the connection.
 
 class BackboneS2SType(BackboneMessageType):
     DONE  = 14
@@ -48,7 +49,7 @@ class BackboneMessage:
                     # C2C messages don't have separate types, so this should be 0.
                     if t != 0: return None # This is not a valid message frame
                     recipient_id = uuid.UUID(bytes=frame[1:17])
-                    payload      = frame[17:]
+                    payload      = frame[17:] if 17 < len(frame) else None
                     return BackboneMessageC2C(recipient_id, payload)
 
                 case BackboneMessageFormat.C2S:
@@ -84,7 +85,7 @@ class BackboneMessageC2C(BackboneMessage):
         
 
 class BackboneMessageC2S(BackboneMessage):
-    def __init__(self, type:BackboneC2SType, timestamp:datetime=None) -> None:
+    def __init__(self, type:BackboneC2SType, timestamp:datetime=None, payload:bytes=None) -> None:
         if type not in BackboneC2SType:
             raise ValueError(f"Invalid Backbone C2S type: {type}")
         super().__init__(BackboneMessageFormat.C2S, type)
@@ -92,20 +93,22 @@ class BackboneMessageC2S(BackboneMessage):
             timestamp = datetime.now()
         
         self.timestamp = datetime.fromtimestamp(int(timestamp.timestamp()))
+        self.payload   = payload
     
     def to_bytes(self):
         frame = super().to_bytes()
-        return frame + int(self.timestamp.timestamp()).to_bytes(4)
+        payload = self.payload if self.payload != None else b''
+        return frame + int(self.timestamp.timestamp()).to_bytes(4) + payload
 
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, BackboneMessageC2S):
             return False
             
-        return super().__eq__(__o) and __o.timestamp == self.timestamp
+        return super().__eq__(__o) and __o.timestamp == self.timestamp and __o.payload == self.payload
 
 
 class BackboneMessageS2S(BackboneMessage):
-    def __init__(self, type:BackboneS2SType, timestamp:datetime=None) -> None:
+    def __init__(self, type:BackboneS2SType, timestamp:datetime=None, payload:bytes=None) -> None:
         if type not in BackboneS2SType:
             raise ValueError(f"Invalid Backbone S2S type: {type}")
         super().__init__(BackboneMessageFormat.S2S, type)
@@ -113,13 +116,15 @@ class BackboneMessageS2S(BackboneMessage):
             timestamp = datetime.now()
         
         self.timestamp = datetime.fromtimestamp(int(timestamp.timestamp()))
+        self.payload   = payload
 
     def to_bytes(self):
         frame = super().to_bytes()
-        return frame + int(self.timestamp.timestamp()).to_bytes(4)
+        payload = self.payload if self.payload != None else b''
+        return frame + int(self.timestamp.timestamp()).to_bytes(4) + payload
     
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, BackboneMessageS2S):
             return False
             
-        return super().__eq__(__o) and __o.timestamp == self.timestamp
+        return super().__eq__(__o) and __o.timestamp == self.timestamp and __o.payload == self.payload

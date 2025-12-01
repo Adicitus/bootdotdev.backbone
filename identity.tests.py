@@ -1,3 +1,4 @@
+import json
 import unittest
 from uuid import UUID, uuid4
 import os
@@ -8,7 +9,24 @@ import time
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-import identity, key, frame
+import identity, key, frame, message
+
+default_settings = {
+    "heartbeat_timeout": 600,
+    "heartbeat_intervall": 300
+}
+
+def get_success_msg():
+    return message.BackboneMessageC2S(message.BackboneC2SType.CONFIG, payload=json.dumps(default_settings).encode(encoding='utf-8')).to_bytes()
+
+def stub_client(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey, result:dict):
+    data = frame.read(s)
+    kl = int.from_bytes(data[0:2])
+    server_public_key = key.deserialize(data[2:2+kl])
+    signature = key.sign(client_key, data[2+kl:])
+    frame.send(s, client_id.bytes + signature, server_public_key)
+    data = frame.read(s, client_key)
+    result["data"] = data
 
 class TestIdentity(unittest.TestCase):
 
@@ -63,32 +81,26 @@ class TestIdentityComponent(unittest.TestCase):
             socket1, socket2 = socket.socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM)
 
             try:
-                def client_response(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey):
-                    data = frame.read(s)
-                    kl = int.from_bytes(data[0:2])
-                    server_public_key = key.deserialize(data[2:2+kl])
-                    signature = key.sign(client_key, data[2+kl:])
-                    frame.send(s, client_id.bytes + signature, server_public_key)
-                    data = frame.read(s, client_key)
-                    self.assertEqual(data, b'Connection authenticated!', "Should return a message indicating that the client authenticated successfully")
-
+                result = {}
                 client_thread = threading.Thread(
-                    target=client_response,
+                    target=stub_client,
                     kwargs={
                         "s": socket2,
                         "client_id": client_id,
-                        "client_key": client_key
+                        "client_key": client_key,
+                        "result": result
                     }
                 )
                 client_thread.start()
 
-                client_socket, client = identities.challenge(socket1)
+                client_socket, client = identities.challenge(socket1, client_settings=default_settings)
 
                 time.sleep(0.1)
 
                 self.assertEqual(client_socket, socket1,              "challenge method should return the socket used to complete the authentication.")
                 self.assertEqual(client.id, client_id,                "The returned client Identity 'id' should match the client_id submitted by the client.")
                 self.assertEqual(client.key, client_key.public_key(), "The returned client identity 'key' should match the key added for client_id.")
+                self.assertEqual(result["data"], get_success_msg())
             finally:
                 socket1.close()
                 socket2.close()
@@ -108,21 +120,14 @@ class TestIdentityComponent(unittest.TestCase):
             socket1, socket2 = socket.socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM)
 
             try:
-                def client_response(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey):
-                    data = frame.read(s)
-                    kl = int.from_bytes(data[0:2])
-                    server_public_key = key.deserialize(data[2:2+kl])
-                    signature = key.sign(client_key, data[2+kl:])
-                    frame.send(s, client_id.bytes + signature, server_public_key)
-                    data = frame.read(s, client_key)
-                    self.assertEqual(data, None)
-
+                result = {}
                 client_thread = threading.Thread(
-                    target=client_response,
+                    target=stub_client,
                     kwargs={
                         "s": socket2,
                         "client_id": client_id,
-                        "client_key": client_key2
+                        "client_key": client_key2,
+                        "result": result
                     }
                 )
                 client_thread.start()
@@ -148,32 +153,27 @@ class TestIdentityComponent(unittest.TestCase):
             socket1, socket2 = socket.socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM)
 
             try:
-                def client_response(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey):
-                    data = frame.read(s)
-                    kl = int.from_bytes(data[0:2])
-                    server_public_key = key.deserialize(data[2:2+kl])
-                    signature = key.sign(client_key, data[2+kl:])
-                    frame.send(s, client_id.bytes + signature, server_public_key)
-                    data = frame.read(s, client_key)
-                    self.assertEqual(data, b'Connection authenticated!')
-
+                result = {}
                 client_thread = threading.Thread(
-                    target=client_response,
+                    target=stub_client,
                     kwargs={
                         "s": socket2,
                         "client_id": client_id,
-                        "client_key": client_key
+                        "client_key": client_key,
+                        "result": result
                     }
                 )
                 client_thread.start()
 
-                client_socket, client = identities.challenge(socket1, 2048)
+                client_socket, client = identities.challenge(socket1, 2048, client_settings=default_settings)
 
                 time.sleep(0.1)
 
+                self.assertEqual(result["data"], get_success_msg())
                 self.assertEqual(client_socket, socket1)
                 self.assertEqual(client.id, client_id)
                 self.assertEqual(client.key, client_key.public_key())
+                
             finally:
                 socket1.close()
                 socket2.close()
@@ -193,21 +193,14 @@ class TestIdentityComponent(unittest.TestCase):
             socket1, socket2 = socket.socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM)
 
             try:
-                def client_response(s:socket.socket, client_id:UUID, client_key:rsa.RSAPrivateKey):
-                    data = frame.read(s)
-                    kl = int.from_bytes(data[0:2])
-                    server_public_key = key.deserialize(data[2:2+kl])
-                    signature = key.sign(client_key, data[2+kl:])
-                    frame.send(s, client_id.bytes + signature, server_public_key)
-                    data = frame.read(s, client_key)
-                    self.assertEqual(data, None)
-
+                result={}
                 client_thread = threading.Thread(
-                    target=client_response,
+                    target=stub_client,
                     kwargs={
                         "s": socket2,
                         "client_id": client_id,
-                        "client_key": client_key2
+                        "client_key": client_key2,
+                        "result": result
                     }
                 )
                 client_thread.start()

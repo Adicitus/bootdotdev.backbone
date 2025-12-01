@@ -1,11 +1,13 @@
 import uuid
 import os
+import json
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 
 import frame
 import key
+from message import BackboneC2SType, BackboneMessageC2S
 
 class ChallengeFailed(Exception) :
     def __init__(self, text):
@@ -33,7 +35,7 @@ class IdentityComponent:
 
         self.initialize()
 
-    def challenge(self, clientsock, challenge_size=1024):
+    def challenge(self, clientsock, challenge_size=1024, client_settings:dict=None):
         challenge_data = os.urandom(challenge_size)
 
         msg = len(self.server_state["public_key_bytes"]).to_bytes(2) + self.server_state["public_key_bytes"] + challenge_data
@@ -56,8 +58,8 @@ class IdentityComponent:
         if not key.verify(client_key, challenge_data, response[16:]):
             raise ChallengeFailed("Invalid signature returned.")
 
-        msg = b'Connection authenticated!'
-        frame.send(clientsock, msg, client_key)
+        msg = BackboneMessageC2S(BackboneC2SType.CONFIG, payload=json.dumps(client_settings).encode(encoding='utf-8')) # b'Connection authenticated!'
+        frame.send(clientsock, msg.to_bytes(), client_key)
 
         return clientsock, Identity(client_id, client_key)
 

@@ -14,6 +14,7 @@ import handle
 class BackboneServer:
     def __init__(self, settings={}, identities:IdentityComponent = None) -> None:
         self.settings = settings
+        self._ensure_settings()
         
         self.auth = identities
         if self.auth == None:
@@ -56,6 +57,33 @@ class BackboneServer:
         
         return True
     
+    def _ensure_settings(self):
+        default_settings = {
+            "challenge_size": 2048,
+            "client": {
+                "heartbeat_timout": 600,
+                "heartbeat_intervall": 300
+            }
+        }
+
+        if self.settings == None:
+            self.settings = default_settings
+            return
+            
+        def copy_settings(src:dict, dst:dict):
+            for k in src.keys():
+                if k in dst:
+                    continue
+
+                if isinstance(src[k], dict):
+                    dst[k] = {}
+                    copy_settings(src[k], dst[k])
+                    continue
+
+                dst[k] = src[k]
+        
+        copy_settings(default_settings, self.settings)
+    
     @staticmethod
     def _run(stop_flag:threading.Event, auth:IdentityComponent, settings:dict):
         next_connection_id = 1
@@ -87,7 +115,7 @@ class BackboneServer:
                     print(f"{connection_id}: New connection from {address}")
 
                     try:
-                        client_socket, client = auth.challenge(clientsock, challenge_size)
+                        client_socket, client = auth.challenge(clientsock, challenge_size, settings["client"])
                         print(f"{connection_id}: challenge met for client {client.id}")
 
                         if handle.get_client_queue(client.id) != None:

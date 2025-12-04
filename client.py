@@ -3,7 +3,8 @@ import signal
 import socket
 import os
 import time
-import uuid
+import json
+from uuid import uuid4, UUID
 from threading import Thread, Event
 from queue import Queue, Empty
 
@@ -15,7 +16,7 @@ from message import BackboneMessageC2S as C2SMsg, BackboneMessageFormat as MsgFo
 
 
 class BackboneClient:
-    def __init__(self, client_id:uuid.UUID, key:rsa.RSAPrivateKey) -> None:
+    def __init__(self, client_id:UUID, key:rsa.RSAPrivateKey) -> None:
         self.id  = client_id
         self.key = key
     
@@ -73,11 +74,11 @@ class BackboneClient:
             return self._messages_in.get_nowait()
         except Empty:
             return None
-
+    
 
     
     @staticmethod
-    def _run(address:str, port:int, client_id:uuid.UUID, private_key:rsa.RSAPrivateKey, messages_in:Queue, messages_out:Queue, stop_flag:Event):
+    def _run(address:str, port:int, client_id:UUID, private_key:rsa.RSAPrivateKey, messages_in:Queue, messages_out:Queue, stop_flag:Event):
         
         with socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM) as sock:
             sock.connect((address, port))
@@ -109,7 +110,8 @@ class BackboneClient:
                 stop_flag.set()
                 return
             
-            # TODO: Implement connection settings
+            settings = json.loads(msg.payload.decode(encoding='utf-8'))
+            settings_flag = Event()
 
             send_thread = Thread(
                 target=BackboneClient._sender,
@@ -118,7 +120,9 @@ class BackboneClient:
                     "server_key": server_public_key,
                     "messages_out": messages_out,
                     "connection": sock,
-                    "stop_flag": stop_flag
+                    "stop_flag": stop_flag,
+                    "settings": settings,
+                    "settings_flag": settings_flag
                 }
             )
             receive_thread= Thread(
@@ -128,7 +132,9 @@ class BackboneClient:
                     "private_key": private_key,
                     "messages_in": messages_in,
                     "connection": sock,
-                    "stop_flag": stop_flag
+                    "stop_flag": stop_flag,
+                    "settings": settings,
+                    "settings_flag": settings_flag
                 }
             )
 
@@ -148,14 +154,16 @@ class BackboneClient:
 
 
     @staticmethod
-    def _sender(client_id:uuid.UUID, server_key:rsa.RSAPublicKey, messages_out:Queue, connection:socket.socket, stop_flag:Event):
+    def _sender(client_id:UUID, server_key:rsa.RSAPublicKey, messages_out:Queue, connection:socket.socket, stop_flag:Event, settings:dict, settings_flag:Event):
         prefix = f"{client_id}-send: "
         print(f"{prefix}Started.")
-        #  TODO: Implement connection settings, using hardcoded values for now.
-        heartbeat_interval = timedelta(seconds=10)
+        heartbeat_interval = timedelta(seconds=settings["heartbeat_interval"]) if "heartbeat_interval" in settings else timedelta(seconds=30)
         last_send = datetime.now()
 
         while not stop_flag.is_set():
+            if settings_flag.is_set():
+                heartbeat_interval = timedelta(seconds=settings["heartbeat_interval"]) if "heartbeat_interval" in settings else timedelta(seconds=30)
+                settings_flag.clear()
             try:
                 msg_record = messages_out.get(timeout=1.0)
                 frame.send(connection, msg_record[0].to_bytes(), server_key)
@@ -178,7 +186,7 @@ class BackboneClient:
 
     
     @staticmethod
-    def _receiver(client_id:uuid.UUID, private_key:rsa.RSAPrivateKey, messages_in:Queue, connection:socket.socket, stop_flag:Event):
+    def _receiver(client_id:UUID, private_key:rsa.RSAPrivateKey, messages_in:Queue, connection:socket.socket, stop_flag:Event, settings:dict, settings_flag:Event):
         prefix = f"{client_id}-receive: "
         print(f"{prefix}Started.")
         while not stop_flag.is_set():
@@ -198,8 +206,21 @@ class BackboneClient:
                                 print(f"{prefix}Received a STOP message from the server. Reason was: {msg.payload}")
                                 stop_flag.set()
                             case C2SMsgType.CONFIG:
-                                # TODO: Implement connection settings
-                                pass
+                                def update_settings(dst:dict, src:dict):
+                                    for key in src.keys():
+                                        if isinstance(src[key], dict):
+                                            if not isinstance(src[key], dict):
+                                                dst[key] = {}
+                                            update_settings(dst[key], src[key])
+                                        else:
+                                            dst[key] = src[key]
+                                try:
+                                    new_settings = json.loads(msg.payload)
+                                    update_settings(settings, new_settings)
+                                    settings_flag.set()
+                                except Exception as e:
+                                    print(f"{prefix}Failed to update settings: {e}")
+
             except socket.timeout:
                 pass
             except Exception as e:
@@ -213,7 +234,7 @@ class BackboneClient:
 
 
 if __name__ == "__main__":
-    client_id = uuid.UUID(hex='05260583c3b242958e6fcbecf50829e6')
+    client_id = uuid4()
 
     state_dir = os.path.join(os.path.dirname(__file__), ".client")
     key_path  = os.path.join(state_dir, f"{client_id.hex}")

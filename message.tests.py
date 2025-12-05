@@ -102,6 +102,20 @@ class TestMessageTranslation(unittest.TestCase):
         timestamp_b = int(timestamp.timestamp()).to_bytes(4)
         msg = BackboneMessageS2S(BackboneS2SType.STOP, timestamp)
         self.assertEqual(msg, BackboneMessage.from_bytes(b'\x2F' + timestamp_b))
+    
+    def test_message_c2s_from_bytes_with_payload(self):
+        timestamp = datetime.now()
+        timestamp_b = int(timestamp.timestamp()).to_bytes(4)
+        payload   = urandom(16)
+        msg = BackboneMessageC2S(BackboneC2SType.STOP, timestamp, payload)
+        self.assertEqual(msg, BackboneMessage.from_bytes(b'\x1F' + timestamp_b + payload))
+
+    def test_message_s2s_from_bytes_with_payload(self):
+        timestamp = datetime.now()
+        timestamp_b = int(timestamp.timestamp()).to_bytes(4)
+        payload   = urandom(16)
+        msg = BackboneMessageS2S(BackboneS2SType.STOP, timestamp, payload)
+        self.assertEqual(msg, BackboneMessage.from_bytes(b'\x2F' + timestamp_b + payload))
 
 
 if __name__ == "__main__":

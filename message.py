@@ -55,12 +55,14 @@ class BackboneMessage:
                 case BackboneMessageFormat.C2S:
                     t = BackboneC2SType(t)
                     timestamp = datetime.fromtimestamp(int.from_bytes(frame[1:5]))
-                    return BackboneMessageC2S(t, timestamp)
+                    payload = frame[5:] if 5 < len(frame) else None
+                    return BackboneMessageC2S(t, timestamp, payload)
 
                 case BackboneMessageFormat.S2S:
                     t = BackboneS2SType(t)
                     timestamp = datetime.fromtimestamp(int.from_bytes(frame[1:5]))
-                    return BackboneMessageS2S(t, timestamp)
+                    payload = frame[5:] if 5 < len(frame) else None
+                    return BackboneMessageS2S(t, timestamp, payload)
                 
         except ValueError as e:
             print(e)

@@ -1,5 +1,5 @@
 # bootdotdev.backbone
-**Spec Version:** 0.1.8
+**Spec Version:** 0.1.9
 **Code Version:** 0.1.28
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
@@ -47,7 +47,7 @@ This could be further mitigated by having the client sign <ins>both</ins> the _s
    - We prevent caching of the _public key_ signature and minimize the risk of the client private key being compromised by guessing based on signatures of known data.
    - Downside is that the server has no way of differentiating between a man-in-the-middle attack and a invalid login attempt.
 
-Specifications prior to version 0.2.0 will define any form of _server public key_ signing mititgation.
+Specifications prior to version 0.2.0 will NOT define any form of _server public key_ signing mititgation.
 
 ## Basic Concepts
 
@@ -208,7 +208,7 @@ The first byte of the _message data_ are reserved to indicate the format of the 
 Bytes  | Field
 -------------
 0[0:3] | Message format (0=Client-Client, 1=Server-Client or Client-Server, 2=Server-Server)
-0[4:7] | Message type
+0[4:7] | Message type (0 for C2C)
 ```
 
 ##### Scoping
@@ -231,38 +231,48 @@ Bytes | Field
 ##### Client-to-Server (C2S)
 C2S messages are used by the client to communicate with the server _client handler_ on the server.
 
-The most fundamental C2S messages are 'HEARTBEAT' and 'STOP':
+The most fundamental C2S messages are 'HEARTBEAT', 'STOP' and 'CONFIG':
 - HEARTBEAT: A signal sent periodically to inform the handler that the client is still alive.
-- STOP: Indicates to he _client handler_ that the client is intending to close the connection.
+- STOP: Used by either end of the connection to indicate that the connection will be closed.
+- CONFIG: Used by the server to provide upddated connection settings to the client.
 
 ```
 Bytes | Field
 -------------
-1     | Message type
-2:N   | Message type-specific data
+1:5   | unix Timestamp (seconds)
+5:N   | Message type-specific data
 ```
 
 Message Types:
 ```
 Number | Message Type | Notes
------------------------------
+------------------------------
 0      | HEARTBEAT    | Client is alive and wishes to keep the connection open for another _settings.heartbeat_interval_.
-1      | STOP         | Client wishes to terminate the connection, _client handler_ should close the _client connection_ and release the _client queue_.
+1      | CONFIG       | Usd by server to inform client about updates to connection settings.
+15     | STOP         | Used by client or server to indicate that the connection will be closed.
 ```
 
 HEARTBEAT message:
 ```
 Bytes | Field
 -------------
-2:6   | Unix timestamp (seconds)
+1:5   | Unix timestamp (seconds)
+```
+
+CONFIG message:
+```
+Bytes | Field
+-------------
+1:5   | Unix timestamp (seconds)
+5:N   | JSON-formated connection settigs (expected to be UTF-8)
 ```
 
 STOP message:
 ```
 Bytes | Field
 -------------
-2:6   | Unix timestamp (seconds)
-7:N   | Reason message (UTF-8 encoded string)
+1:5   | Unix timestamp (seconds)
+5:N   | Reason message (UTF-8 encoded string)
 ```
 
 ## Appendix A: Settings

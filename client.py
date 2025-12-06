@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 import frame
 import key
-from message import BackboneMessageC2S as C2SMsg, BackboneMessageFormat as MsgFormat, BackboneC2SType as C2SMsgType, BackboneMessage
+from message import BackboneMessageC2S as MsgC2S, BackboneMessageC2C as MsgC2C, BackboneMessageFormat as MsgFormat, BackboneC2SType as MsgC2SType, BackboneMessage
 
 
 class BackboneClient:
@@ -20,7 +20,8 @@ class BackboneClient:
         self.id  = client_id
         self.key = key
     
-    def start(self, address:str, port:int=4000):
+    def start(self, address:str, port:int=4000) -> Event:
+        ready_flag = Event()
         self.stop_flag = Event()
         self._messages_in = Queue()
         self._messages_out = Queue()
@@ -33,16 +34,18 @@ class BackboneClient:
                 "private_key": self.key,
                 "messages_in": self._messages_in,
                 "messages_out": self._messages_out,
-                "stop_flag": self.stop_flag
+                "stop_flag": self.stop_flag,
+                "ready_flag": ready_flag
             })
         self.stop_flag.clear()
         self._thread.start()
+        return ready_flag
     
     def stop(self) -> bool:
         if not self.is_running():
             return False
         
-        sent_flag = self.send(C2SMsg(C2SMsgType.STOP))
+        sent_flag = self.send(MsgC2S(MsgC2SType.STOP))
 
         sent_flag.wait(1)
         
@@ -52,6 +55,7 @@ class BackboneClient:
         self.stop_flag = None
         self._messages_in = None
         self._messages_out = None
+        self._thread == None
     
     def is_running(self) -> bool:
         return self.stop_flag != None and not self.stop_flag.is_set()
@@ -66,19 +70,22 @@ class BackboneClient:
         return message_sent
     
     # Attempts to retrieve a message from the client's inbound message queue.
-    def read(self):
+    def read(self, block=False) -> MsgC2C | None:
         if not self.is_running():
             return None
         
-        try:
-            return self._messages_in.get_nowait()
-        except Empty:
-            return None
+        if block:
+            return self._messages_in.get()
+        else:
+            try:
+                return self._messages_in.get_nowait()
+            except Empty:
+                return None
     
 
     
     @staticmethod
-    def _run(address:str, port:int, client_id:UUID, private_key:rsa.RSAPrivateKey, messages_in:Queue, messages_out:Queue, stop_flag:Event):
+    def _run(address:str, port:int, client_id:UUID, private_key:rsa.RSAPrivateKey, messages_in:Queue, messages_out:Queue, stop_flag:Event, ready_flag:Event):
         
         with socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM) as sock:
             sock.connect((address, port))
@@ -105,7 +112,7 @@ class BackboneClient:
                 stop_flag.set()
                 return
 
-            if msg.format != MsgFormat.C2S or msg.type != C2SMsgType.CONFIG:
+            if msg.format != MsgFormat.C2S or msg.type != MsgC2SType.CONFIG:
                 print(f"{client_id}-master: Invalid response received from server, assuming authentication failed.")
                 stop_flag.set()
                 return
@@ -143,6 +150,7 @@ class BackboneClient:
             print(f"{client_id}-master: Starting receive thread")
             receive_thread.start()
             
+            ready_flag.set()
             stop_flag.wait()
 
             print(f"{client_id}-master: Stop flag set, waiting for socket threads to finish...")
@@ -171,13 +179,13 @@ class BackboneClient:
                 msg_record[1].set()
             except Empty:
                 if heartbeat_interval < datetime.now() - last_send:
-                    frame.send(connection, C2SMsg(C2SMsgType.HEARTBEAT).to_bytes(), server_key)
+                    frame.send(connection, MsgC2S(MsgC2SType.HEARTBEAT).to_bytes(), server_key)
                     last_send = datetime.now()
                 continue
             except Exception as e:
                 print(f"{prefix}Unexpected exception {e}")
                 try:
-                    frame.send(C2SMsg(C2SMsgType.STOP, payload=b'Unexpected error!'))
+                    frame.send(MsgC2S(MsgC2SType.STOP, payload=b'Unexpected error!'))
                 except:
                     pass
                 stop_flag.set()
@@ -202,10 +210,10 @@ class BackboneClient:
                         messages_in.put(msg)
                     case MsgFormat.C2S:
                         match msg.type:
-                            case C2SMsgType.STOP:
+                            case MsgC2SType.STOP:
                                 print(f"{prefix}Received a STOP message from the server. Reason was: {msg.payload}")
                                 stop_flag.set()
-                            case C2SMsgType.CONFIG:
+                            case MsgC2SType.CONFIG:
                                 def update_settings(dst:dict, src:dict):
                                     for key in src.keys():
                                         if isinstance(src[key], dict):
@@ -226,7 +234,7 @@ class BackboneClient:
             except Exception as e:
                 print(f"{prefix}Unexpected exception {e}")
                 try:
-                    frame.send(C2SMsg(C2SMsgType.STOP, payload=b'Unexpected error!'))
+                    frame.send(MsgC2S(MsgC2SType.STOP, payload=b'Unexpected error!'))
                 except:
                     pass
                 stop_flag.set()

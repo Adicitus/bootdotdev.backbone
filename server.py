@@ -150,8 +150,13 @@ class BackboneServer:
                     continue
             for handler in handlers.values():
                 if handler.is_running():
-                    print(f"Waiting for {handler} to stop running")
-                    handler.thread.join()
+                    try:
+                        print(f"Waiting for {handler} to stop running")
+                        if handler.thread != None:
+                            handler.thread.join()
+                    except:
+                        pass
+
 
             print("Server stopped.")
 

@@ -169,6 +169,7 @@ class ClientHandler:
                 match msg.format:
                     case MsgFormat.C2C:
                         recipient_queue = get_client_queue(msg.recipient)
+                        # TODO: Handle case where the recipient is not connected
                         recipient_queue.put(msg)
                         continue
 

@@ -1,5 +1,5 @@
 # bootdotdev.backbone
-**Spec Version:** 0.1.9
+**Spec Version:** 0.1.10
 **Code Version:** 0.1.28
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
@@ -35,7 +35,7 @@ Backbone attempts to mitigates this risk by only using the same public key used 
 10. **TS** validates the signature using its stored _client public key_ for **C**.
 11. **TS** acccepts the session from **C** and uses the _client public key_ to encrypt all communication with **C** going forward.
 
-Note that this that while **DS** cannot read messages sent by the **TS**, it can still read any messages sent by **C**. This is not acceptable.
+Note that while **DS** cannot read messages sent by the **TS**, it can still read any messages sent by **C**. This is not acceptable.
 
 This could be further mitigated by having the client sign <ins>both</ins> the _server public key_ and _challenge data_ to verify receipt, either:
 1. Client creates separate signatures for the _server public key_ and _challenge data_.
@@ -264,7 +264,7 @@ CONFIG message:
 Bytes | Field
 -------------
 1:5   | Unix timestamp (seconds)
-5:N   | JSON-formated connection settigs (expected to be UTF-8)
+5:N   | JSON-formated connection settigs (expected to be UTF-8), see appendix a for details
 ```
 
 STOP message:
@@ -275,7 +275,16 @@ Bytes | Field
 5:N   | Reason message (UTF-8 encoded string)
 ```
 
-## Appendix A: Settings
+## Appendix A: Server Settings
+Server settings in Backbone are specified using TOML, e.g.:
+```
+port: 4000
+challenge_size: 1024
+[client]
+heartbeat_timeout: 600
+heartbeat_interval: 300
+```
+- **port**: Port that the server should bind to.
 - **challenge_size**: Size in bytes of the randomized _challenge data_ sent to clients as part of the authentication challenge.
 - **heartbeat_timout**: Time of inactivity (in seconds) that the _client handler_ should wait before assuming a client is dead.
 - **heartbeat_interval**: Time of inactivity before the client should send a _HEARTBEAT_ message.

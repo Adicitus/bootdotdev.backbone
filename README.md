@@ -9,6 +9,44 @@ This project is intended as an excercise in:
 - Multi-threading
 - Public-Private key cryptography
 
+## Basic usage
+Backbone is intended to be used as component in a larger projec, to allow encrypted communication between registered clients.
+
+Basic server with all default values:
+```
+from server import BackboneServer
+
+backbone_server = BackboneServer()
+```
+
+This will create Backbone server that listens on port 4000 on all registered IPv4 addresses, and with a state store in the folder '.server' under the project folder.
+
+This type of deployment is mostly meant for development, and if you were to use this is in a larger project you'll want to specify the folder that the server state should be stored in:
+```
+from server import BackboneServer
+from identity import IdentityComponent
+
+auth = IdentityComponent(state_dir="<path where you want to keep the server state>")
+backbone_server = BackboneServer()
+```
+
+To enable a client to connect with the server, you'll need to register the clients ID and public key with the server.
+
+This can be done by placing the public key (PEM encoded) into a named with the intended client ID (in hex, not standard UUID format) into the '<server store>/.clients' folder, or by calling the 'add_client' method on the running IdentityComponent:
+```
+from identity import IdentityComponent
+auth = IdentityComponent(state_dir="<path where you want to keep the server state>")
+auth.add_client(client_id, client_public_key)
+```
+
+At this point, you should be able to connect the client to the server (assuming default settings):
+```
+from client import BackboneClient
+
+client = BackboneClient(client_id, client_private_key)
+client.start(address="<server IPv4 address>", port=4000)
+```
+
 ## Why not use TLS/SSL (Lib/ssl.py)?
 This is specification is intended as an excercise in using cryptographic primitives to secure communication and data.
 

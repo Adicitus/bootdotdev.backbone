@@ -89,9 +89,11 @@ class BackboneClient:
         
         with socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM) as sock:
             sock.connect((address, port))
+            # TODO: Handle failed connection
 
             # Receive server challenge:
             challenge =  frame.read(sock)
+            # TODO: handle failed authentications
             key_length = int.from_bytes(challenge[0:2])
             server_public_key_b = challenge[2:2+key_length]
             server_public_key = key.deserialize(server_public_key_b)

@@ -1,6 +1,6 @@
 # bootdotdev.backbone
-**Spec Version:** 0.1.10
-**Code Version:** 0.1.28
+**Spec Version:** 0.1.11
+**Code Version:** 0.1.29
 
 Personal Project for Boot.dev: A simple server-client framework for client-client communication (read "chat") losely based on SSH with private-key authentication written in Python.
 
@@ -321,8 +321,11 @@ challenge_size: 1024
 [client]
 heartbeat_timeout: 600
 heartbeat_interval: 300
+[state]
+state_dir = "."
 ```
 - **port**: Port that the server should bind to.
 - **challenge_size**: Size in bytes of the randomized _challenge data_ sent to clients as part of the authentication challenge.
 - **heartbeat_timout**: Time of inactivity (in seconds) that the _client handler_ should wait before assuming a client is dead.
 - **heartbeat_interval**: Time of inactivity before the client should send a _HEARTBEAT_ message.
+- **state_dir**: Directory where server state data will be persisted.

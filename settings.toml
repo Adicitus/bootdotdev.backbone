@@ -1,4 +1,8 @@
-# Always generate 2048 bytes of random data for authentication challenges:
+# The directory that should be used to store persistent server state data:
+state_dir = "."
+# Default port for the server is 4000, replace with another number to change prot:
+port = 4000
+# Generate 2048 bytes of random data for authentication challenges:
 challenge_size = 2048
 
 [client]

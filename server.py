@@ -7,6 +7,7 @@ import time
 import socket
 import traceback
 import threading
+import os
 
 from identity import IdentityComponent, ChallengeFailed
 import handle
@@ -18,7 +19,7 @@ class BackboneServer:
         
         self.auth = identities
         if self.auth == None:
-            self.auth = IdentityComponent()
+            self.auth = IdentityComponent(state_dir=self.settings["state_dir"])
 
         self.server_thread = None
         self.stop_flag     = None
@@ -59,10 +60,12 @@ class BackboneServer:
     
     def _ensure_settings(self):
         default_settings = {
+            "state_dir": os.path.dirname(__file__),
+            "port": 4000,
             "challenge_size": 2048,
             "client": {
-                "heartbeat_timout": 600,
-                "heartbeat_intervall": 300
+                "heartbeat_timeout": 600,
+                "heartbeat_interval": 300
             }
         }
 
